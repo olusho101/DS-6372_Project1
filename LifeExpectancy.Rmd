@@ -1,0 +1,118 @@
+---
+title: "Untitled"
+author: "Samuel Onalaja"
+date: "9/18/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Libraries
+
+```{r}
+library(tidyverse)
+library(corrplot)
+library(mlbench)
+library(caret)
+library(skimr)
+library(mice)
+library(purrr)
+library(ggplot2)
+library(ggthemes)
+library(cowplot)
+library(class)
+library(e1071)
+library(grid)
+library(tidyr)
+library(stringr)
+library(naniar)
+
+```
+
+
+Read in data and perform some summary statistics on the raw data
+```{r}
+Life<-read.csv("/Users/olusho/Documents/School/Stats 2 proj 1/Life Expectancy Data.csv",header=T)
+summary(Life)
+dim(Life)
+skim(Life)
+head(Life)
+str(Life)
+attach(Life)
+```
+
+Check for missing values and address it
+```{r}
+vis_miss(Life)
+md.pattern(Life)
+```
+
+Remove Missig values
+
+```{r}
+#Life2 <- Life %>% drop_na(GDP, BMI)
+Life2 <- na.omit(Life)
+head(Life2)
+str(Life2)
+skim(Life2)
+```
+
+Data Exploaration
+
+```{r}
+Life.model<-lm(Life.expectancy~.,data=Life2)  
+vif(Life.model)[,3]^2
+
+cor(Life2)
+
+corrdfTrain <- dfTrain3
+# This table shows the correlation between the numerical variables
+corrdfTraintable <- Life2 %>% keep(is.numeric) %>% na.omit %>% cor %>% view
+
+Life2 %>% keep(is.numeric) %>% na.omit %>% cor %>% corrplot("upper", addCoef.col = "black", number.digits = 2, number.cex = 0.5, method="shade", order="hclust", tl.srt=45, tl.cex = 0.8)
+invisible(view(corrdfTraintable))
+
+#the linearly dependent variables
+#ld.vars <- attributes(alias(fit)$Complete)$dimnames[[1]]
+
+#remove the linearly dependent variables variables
+#formula.new <- as.formula(
+    #paste(
+       # paste(deparse(Life.model), collapse=""), 
+        #paste(ld.vars, collapse="-"),
+       # sep="-"
+   # )
+#)
+
+#run model again
+#fit.new <-lm(formula.new)
+#vif(fit.new)
+
+```
+
+checking for correlation Numerical variable vs response
+
+```{r}
+Attr <- "Life.expectancy"
+
+# Name explanatory variable
+ExplVar<- Life2%>% keep(is.numeric) %>% colnames
+
+# Create function
+PlotFunc <- function(df, explanatory, response) {
+  ggplot(data = df) + geom_density(aes_string(x = explanatory), alpha = 0.5) + xlab(explanatory) + ylab("Life.expectancy")
+}
+
+  # Density plot
+PlotFunc(Life2, explanatory =  "Alcohol", response = "Life.expectancy")
+
+#  Create plot list for plot_grid function to reference
+PlotList <- lapply(ExplVar, function(x) PlotFunc(Life2, x, Life.expectancy))
+
+#  Grid of all categorical variables plotted against Attrition
+plot_grid(plotlist = PlotList)
+```
