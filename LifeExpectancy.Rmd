@@ -202,9 +202,9 @@ summary(Life_model)
 
 Predict_Life3 <- predict(Life_model,interval = "predict",newdata = test)
 
-MSPE = data.frame(Predictions = Predict_Life3[,1], Actual = test$Life.expectancy)
-MSPE$Res = MSPE$Predictions - MSPE$Actual
-MSPE$SqRes = MSPE$Res^2
+MSPE <- data.frame(Predictions = Predict_Life3[,1], Actual = test$Life.expectancy)
+MSPE$Res <- MSPE$Predictions - MSPE$Actual
+MSPE$SqRes <- MSPE$Res^2
 mean(MSPE$SqRes)
 
 
