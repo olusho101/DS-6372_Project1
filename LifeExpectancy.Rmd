@@ -30,6 +30,7 @@ library(grid)
 library(tidyr)
 library(stringr)
 library(naniar)
+library(car)
 
 ```
 
@@ -43,6 +44,7 @@ skim(Life)
 head(Life)
 str(Life)
 attach(Life)
+
 ```
 
 Check for missing values and address it
@@ -61,40 +63,19 @@ str(Life2)
 skim(Life2)
 ```
 
-Data Exploaration
-
+Convert all categorical variables to factor
 ```{r}
-Life.model<-lm(Life.expectancy~.,data=Life2)  
-vif(Life.model)[,3]^2
-
-cor(Life2)
-
-corrdfTrain <- dfTrain3
-# This table shows the correlation between the numerical variables
-corrdfTraintable <- Life2 %>% keep(is.numeric) %>% na.omit %>% cor %>% view
-
-Life2 %>% keep(is.numeric) %>% na.omit %>% cor %>% corrplot("upper", addCoef.col = "black", number.digits = 2, number.cex = 0.5, method="shade", order="hclust", tl.srt=45, tl.cex = 0.8)
-invisible(view(corrdfTraintable))
-
-#the linearly dependent variables
-#ld.vars <- attributes(alias(fit)$Complete)$dimnames[[1]]
-
-#remove the linearly dependent variables variables
-#formula.new <- as.formula(
-    #paste(
-       # paste(deparse(Life.model), collapse=""), 
-        #paste(ld.vars, collapse="-"),
-       # sep="-"
-   # )
-#)
-
-#run model again
-#fit.new <-lm(formula.new)
-#vif(fit.new)
-
+Life22 =Life2
+Life22$Status = as.factor(Life2$Status)
 ```
 
+##Data Exploaration
 checking for correlation Numerical variable vs response
+- thinness..1.19.years  and thinness.5.9.years are correlated
+- Polio, Diphtheria and Hepatitis.B are correlated
+- Measles and HIV.AIDS are correlated 
+- GDP, percentage.expenditure and population are correlated
+- under.five.deaths and infant.deaths are correlated
 
 ```{r}
 Attr <- "Life.expectancy"
@@ -115,4 +96,120 @@ PlotList <- lapply(ExplVar, function(x) PlotFunc(Life2, x, Life.expectancy))
 
 #  Grid of all categorical variables plotted against Attrition
 plot_grid(plotlist = PlotList)
+```
+
+##Data Exploaration
+checking for correlation with VIF
+```{r}
+#The vif model shows error due alias coefficient
+Life.model<-lm(Life.expectancy~.,data=Life2)  
+vif(Life.model)[,3]^2
+
+#Check for alias coeffiecient and drop them
+ld.vars <- attributes(alias(Life.model)$Complete)$dimnames[[1]]  
+ld.vars
+
+#According to ld.vars "StatusDeveloping" is a problem so we are going to drop it
+drop <- c("Status")
+Life3 <- Life2[, !(names(Life2) %in% drop)]
+
+#The new vif model worked after dropping status
+Life.model2<-lm(Life.expectancy~.,data=Life3)  
+vif(Life.model2)[,3]^2
+
+#cor(Life2)
+
+
+# This table shows the correlation between the numerical variables
+corrdfTraintable <- Life2 %>% keep(is.numeric) %>% na.omit %>% cor %>% view
+
+Life2 %>% keep(is.numeric) %>% na.omit %>% cor %>% corrplot("upper", addCoef.col = "black", number.digits = 2, number.cex = 0.5, method="shade", order="hclust", tl.srt=45, tl.cex = 0.8)
+invisible(view(corrdfTraintable))
+
+
+```
+
+
+```{r}
+#removes Infant.death,under.five.deaths, thinness_1.9_years, and percentage_expenditure, GDP, Schooling.
+life_new<- Life3[-c(5,7,11,16,18,21)]
+life_new.model<- life_new 
+life_newModel <- lm(Life.expectancy~.,data=life_new.model)  
+vif(life_newModel)[,3]^2
+summary(life_newModel)
+
+
+par(mfrow=c(2,2))
+plot(life_newModel)
+
+residplot = resid(life_newModel)
+qqnorm(residplot)
+qqline(residplot)
+
+
+Attr <- "Life.expectancy"
+
+# Name explanatory variable
+ExplVarNew<- life_new.model%>% keep(is.numeric) %>% colnames
+
+# Create function
+PlotFuncNew <- function(df, explanatory, response) {
+  ggplot(data = df) + geom_density(aes_string(x = explanatory), alpha = 0.5) + xlab(explanatory) + ylab("Life.expectancy")
+}
+
+  # Density plot
+PlotFuncNew(Life2, explanatory =  "Alcohol", response = "Life.expectancy")
+
+#  Create plot list for plot_grid function to reference
+PlotListNew <- lapply(ExplVarNew, function(x) PlotFuncNew(life_new.model, x, Life.expectancy))
+
+#  Grid of all categorical variables plotted against Attrition
+plot_grid(plotlist = PlotListNew)
+
+
+```
+
+
+```{r backwards}
+#life_backward <- step(life_newModel, direction = "backward")
+#summary(life_backward)
+```
+
+
+```{r forwards}
+#life_forward <- step(life_newModel, direction = "backward")
+#summary(life_forward)
+```
+
+
+```{r}
+splitPerc = .8
+
+TrainedLife = sample(1:dim(Life3)[1],round(splitPerc * dim(Life3)[1]))
+train = Life3[TrainedLife,]
+test = Life3[TrainedLife,]
+
+Life_model <- lm(Life.expectancy~.,data=train)  
+vif(Life_model)[,3]^2
+summary(Life_model)
+
+
+
+
+
+
+
+
+Predict_Life3 <- predict(Life_model,interval = "predict",newdata = test)
+
+MSPE = data.frame(Predictions = Predict_Life3[,1], Actual = test$Life.expectancy)
+MSPE$Res = MSPE$Predictions - MSPE$Actual
+MSPE$SqRes = MSPE$Res^2
+mean(MSPE$SqRes)
+
+
+```
+
+
+
 ```
